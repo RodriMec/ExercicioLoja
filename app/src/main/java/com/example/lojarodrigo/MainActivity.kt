@@ -12,7 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.lojarodrigo.ui.theme.LojaRodrigoTheme
-
+import android.util.Log
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,18 +30,8 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
+val produto = Produto (1, "Notebook", 3500, 2)
+println(produto)
 }
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    LojaRodrigoTheme {
-        Greeting("Android")
-    }
-}
+produto.Estoque(1)
+prinln(produto)
