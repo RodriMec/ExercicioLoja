@@ -15,6 +15,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 const val TAG = "LojaApp"
@@ -41,32 +42,6 @@ class Cliente(
     }
 }
 
-class CarrinhoDeCompras {
-    val produtos = mutableListOf<Pair<Produto, Int>>()
-
-    fun adicionarProduto(produto: Produto, quantidade: Int) {
-        if (produto.estoque >= quantidade) {
-            produtos.add(produto to quantidade)
-            Log.d(TAG, "${quantidade}x ${produto.nome} adicionado ao carrinho.")
-        } else {
-            Log.d(TAG, "Estoque insuficiente para ${produto.nome}.")
-        }
-    }
-
-    fun removerProduto(produto: Produto) {
-        produtos.removeIf { it.first == produto }
-        Log.d(TAG, "${produto.nome} removido do carrinho.")
-    }
-
-    fun exibirCarrinho() {
-        produtos.forEach { Log.d(TAG, "${it.second}x ${it.first.nome} - R$${it.first.preco}") }
-    }
-
-    fun calcularTotal(): Double {
-        return produtos.sumOf { it.first.preco * it.second }
-    }
-}
-
 class Loja {
     val produtosDisponiveis = mutableListOf(
         Produto(1, "Camiseta", 50.0, 10),
@@ -76,19 +51,6 @@ class Loja {
 
     fun listarProdutos() {
         produtosDisponiveis.forEach { it.exibirDetalhes() }
-    }
-
-    fun finalizarCompra(cliente: Cliente, carrinho: CarrinhoDeCompras) {
-        val total = carrinho.calcularTotal()
-        if (cliente.saldo >= total) {
-            carrinho.produtos.forEach { (produto, quantidade) ->
-                produto.estoque -= quantidade
-            }
-            cliente.saldo -= total
-            Log.d(TAG, "Compra realizada com sucesso!")
-        } else {
-            Log.d(TAG, "Saldo insuficiente!")
-        }
     }
 }
 
@@ -100,21 +62,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
-
+@Preview
 @Composable
 fun LojaScreen() {
     val loja = remember { Loja() }
     val cliente = remember { Cliente(1, "Rodrigo", 500.0) }
-    val carrinho = remember { CarrinhoDeCompras() }
+    val carrinho = remember { mutableStateListOf<Pair<Produto, Int>>() }
     var mensagem by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Produtos Disponíveis:", style = MaterialTheme.typography.headlineSmall)
+        Text("Produtos Disponíveis:", style = MaterialTheme.typography.headlineLarge)
         LazyColumn {
             items(loja.produtosDisponiveis) { produto ->
                 Card(modifier = Modifier.fillMaxWidth().padding(8.dp).clickable {
-                    carrinho.adicionarProduto(produto, 1)
-                    mensagem = "${produto.nome} adicionado ao carrinho!"
+                    if (produto.estoque > 0) {
+                        val index = carrinho.indexOfFirst { it.first == produto }
+                        if (index >= 0) {
+                            carrinho[index] = carrinho[index].copy(second = carrinho[index].second + 1)
+                        } else {
+                            carrinho.add(produto to 1)
+                        }
+                        produto.estoque--
+                        mensagem = "${produto.nome} adicionado ao carrinho!"
+                        mensagem = "Saldo: RS ${cliente.saldo}"
+                    } else {
+                        mensagem = "Estoque insuficiente para ${produto.nome}!"
+                    }
                 }) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text("${produto.nome} - R$${produto.preco}")
@@ -124,13 +97,42 @@ fun LojaScreen() {
             }
         }
         Spacer(modifier = Modifier.height(16.dp))
+        Text("Carrinho:", style = MaterialTheme.typography.headlineSmall)
+        LazyColumn {
+            items(carrinho) { (produto, quantidade) ->
+                Card(modifier = Modifier.fillMaxWidth().padding(8.dp)) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("${produto.nome} - R$${produto.preco} x$quantidade")
+                        Button(onClick = {
+                            if (quantidade > 1) {
+                                val index = carrinho.indexOfFirst { it.first == produto }
+                                carrinho[index] = produto to (quantidade - 1)
+                            } else {
+                                carrinho.removeIf { it.first == produto }
+                            }
+                            produto.estoque++
+                            mensagem = "${produto.nome} removido do carrinho!"
+                        }) {
+                            Text("Remover")
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(16.dp))
         Button(onClick = {
-            loja.finalizarCompra(cliente, carrinho)
-            mensagem = "Compra finalizada! Saldo restante: R$${cliente.saldo}"
+            val total = carrinho.sumOf { it.first.preco * it.second }
+            if (cliente.saldo >= total) {
+                cliente.saldo -= total
+                carrinho.clear()
+                mensagem = "Compra finalizada! Saldo restante: R$${cliente.saldo}"
+            } else {
+                mensagem = "Saldo insuficiente para a compra!"
+            }
         }) {
             Text("Finalizar Compra")
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Text(mensagem, style = MaterialTheme.typography.bodySmall)
+        Text(mensagem, style = MaterialTheme.typography.bodyMedium)
     }
 }
